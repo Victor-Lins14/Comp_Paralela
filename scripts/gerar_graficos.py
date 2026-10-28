@@ -132,10 +132,10 @@ def gerar_graficos():
         ax.grid(axis='y', linestyle='--', alpha=0.45)
 
         max_y = (sub['MediaMs'] + sub['DesvioPadraoMs']).max()
-        ax.set_ylim(0, max_y * 1.22)
-        for rect, media, spd in zip(barras, sub['MediaMs'], sub['Speedup']):
-            altura = rect.get_height()
-            ax.text(rect.get_x() + rect.get_width() / 2.0, altura + max_y * 0.04,
+        ax.set_ylim(0, max_y * 1.28)
+        for rect, media, std, spd in zip(barras, sub['MediaMs'], sub['DesvioPadraoMs'], sub['Speedup']):
+            altura = rect.get_height() + std
+            ax.text(rect.get_x() + rect.get_width() / 2.0, altura + max_y * 0.025,
                     f"{media:.2f} ms\n({spd:.2f}x)", ha='center', va='bottom', fontsize=8, fontweight='bold')
 
     plt.suptitle("Figura 2 — Tempo Médio de Execução e Desvio Padrão (5 Amostras) por Número de Threads",

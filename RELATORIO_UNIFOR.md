@@ -1,171 +1,212 @@
-| ![Unifor](resultados/graficos_relatorio/unifor_logo.png) | **UNIVERSIDADE DE FORTALEZA**<br>**CENTRO DE CIÊNCIAS TECNOLÓGICAS**<br>**CURSO: CIÊNCIA DA COMPUTAÇÃO** |
+| ![Unifor](templates/unifor_logo.png) | **UNIVERSIDADE DE FORTALEZA**<br>**CENTRO DE CIÊNCIAS TECNOLÓGICAS**<br>**CURSO: CIÊNCIA DA COMPUTAÇÃO** |
 | :---: | :--- |
 
 # ANÁLISE DE DESEMPENHO DE ALGORITMOS DE BUSCA EM AMBIENTES CONCORRENTES E PARALELOS: UM ESTUDO COMPARATIVO EM JAVA
 
-**Autor 1:** Victor Lins.  
-**Autor 2:** Integrante da Dupla (Inserir Nome).  
-**Palavras-chave:** Computação Paralela. Algoritmos de Ordenação e Busca. Java ForkJoinPool. Análise Estatística de Desempenho. Speedup.
+*Autor 1: Victor Lins.*  
+*Autor 2: Diogo Guimarães Gifoni.*  
 
----
+**Palavras-chave:** Computação Paralela. Algoritmos de Ordenação. Java Fork/Join. Speedup. Análise Estatística.
+
 
 ## Resumo
-Este trabalho realiza uma análise experimental e estatística detalhada do desempenho de quatro algoritmos fundamentais para estruturação e busca eficiente de dados — *Quick Sort*, *Merge Sort*, *Counting Sort* e *Bubble Sort* — em ambientes de execução seriais e paralelos utilizando a linguagem de programação Java (JDK 26). A busca por eficiência computacional em arquiteturas *multicore* modernas exige compreender não apenas a complexidade assintótica teórica, mas também os custos práticos de sincronização de *threads*, localidade de cache e contenção de memória. Foi desenvolvido um *framework* de avaliação automatizado em Java, acompanhado de uma interface gráfica interativa em **Java Swing** com gráficos dinâmicos em tempo real e integração com **Jupyter Notebook**. Os experimentos variaram o tamanho dos conjuntos de dados (de $10.000$ a $1.000.000$ de elementos), a natureza da distribuição de entrada (aleatória, inversamente ordenada, quase ordenada e com alta repetição de chaves), a amplitude do intervalo de valores e o número de *threads* alocadas ($1, 2, 4, 8$ e $16$ núcleos lógicos), coletando-se $5$ amostras independentes para cada configuração após aquecimento da máquina virtual (*JIT Warmup*). Os resultados registrados em arquivos CSV demonstram que o *Merge Sort* e o *Quick Sort* alcançaram expressiva escalabilidade paralela em vetores de $1.000.000$ de elementos (atingindo *Speedups* de até **5.83x** e **5.39x**, respectivamente), enquanto o *Counting Sort* apresentou o menor tempo absoluto em intervalos moderados, mas revelou sensibilidade direta à expansão da amplitude de valores $k$ e à largura de banda da memória principal.
 
----
+Este trabalho analisa experimentalmente o desempenho de quatro algoritmos de ordenação, etapa que antecede e viabiliza a busca eficiente de dados, em versões sequenciais e paralelas implementadas em Java: Quick Sort, Merge Sort, Counting Sort e Bubble Sort (na formulação paralela Odd-Even Transposition). Foi desenvolvido um framework de testes que varia o tamanho dos conjuntos de dados (10.000 a 1.000.000 de elementos), a natureza da entrada (aleatória, inversamente ordenada, quase ordenada e com poucas chaves distintas), o intervalo de valores e o número de threads (1, 2, 4, 8 e 16), com cinco amostras por configuração e registro dos resultados em arquivos CSV. Para N = 1.000.000, o Merge Sort e o Quick Sort paralelos atingiram Speedups de 4,18x e 4,28x, respectivamente. O Bubble Sort Odd-Even alcançou 1,22x com 4 threads para N = 50.000, limitado pelo custo das barreiras de sincronização entre fases. O Counting Sort obteve os menores tempos absolutos, mas, por ser limitado pela memória, praticamente não se beneficiou do paralelismo e mostrou forte sensibilidade à amplitude k do intervalo de valores. Os resultados foram visualizados em uma aplicação de gráficos dinâmicos em Java Swing e em Jupyter Notebook.
+
 
 ## Introdução
-A eficiência na recuperação, indexação e busca de informações constitui um dos pilares centrais da Ciência da Computação. Em sistemas de grande escala, a viabilidade de algoritmos de busca rápida — tais como a busca binária em tempo logarítmico $O(\log n)$, buscas por intervalo e consultas analíticas — depende diretamente da prévia ordenação estruturada dos dados. Com a transição da indústria de processadores para arquiteturas *multicore*, explorar o paralelismo de dados e de tarefas tornou-se indispensável para reduzir o tempo de resposta em cargas de trabalho intensivas.
 
-Neste estudo comparativo em Java, foram selecionados quatro algoritmos que representam diferentes paradigmas de projeto e classes de complexidade assintótica:
-1. **Quick Sort**: algoritmo de divisão e conquista *in-place* baseado em particionamento bidirecional de Hoare e pivô por mediana de três, com complexidade média $O(n \log n)$.
-2. **Merge Sort**: algoritmo estável de divisão e conquista baseado em intercalação (*merge*) com garantia determinística $O(n \log n)$ no pior caso e vetor auxiliar pré-alocado.
-3. **Counting Sort**: método não-comparativo de endereçamento direto por contagem de frequências, cuja complexidade linear $O(n + k)$ depende do tamanho da entrada $n$ e da amplitude do intervalo de valores $k$.
-4. **Bubble Sort**: algoritmo elementar baseado em trocas sucessivas de elementos adjacentes com complexidade quadrática $O(n^2)$.
+A ordenação é uma das operações mais estudadas da Ciência da Computação, pois algoritmos de busca eficientes, como a busca binária em O(log n), as consultas por intervalo e a indexação em bancos de dados, pressupõem dados previamente ordenados. Com a consolidação dos processadores multicore, reduzir o tempo dessas operações passou a depender não só da complexidade assintótica, mas também da capacidade de dividir o trabalho entre núcleos e dos custos de sincronização, comunicação e acesso à memória que essa divisão introduz.
 
-A paralelização em Java utilizou o framework `ForkJoinPool` (`RecursiveAction` e *work-stealing*), aplicando limiares adaptativos de granularidade (*thresholds*) para os métodos recursivos, histogramas locais sem contenção de bloqueios para o *Counting Sort*, e decomposição em sub-blocos concorrentes seguida de intercalação paralela (além da variante *Odd-Even Transposition Sort*) para o *Bubble Sort*.
+Dentre os seis algoritmos propostos no enunciado, foram escolhidos quatro que representam paradigmas e classes de complexidade distintos: (i) Quick Sort, divisão e conquista in-place com complexidade média O(n log n), aqui com pivô por mediana de três e particionamento de Hoare; (ii) Merge Sort, divisão e conquista estável com O(n log n) garantido no pior caso; (iii) Counting Sort, método não comparativo de complexidade O(n + k), em que k é a amplitude do intervalo de valores; e (iv) Bubble Sort, método elementar O(n²) baseado em trocas de elementos adjacentes.
 
----
+A abordagem de paralelização utilizou as ferramentas do pacote java.util.concurrent. Quick Sort e Merge Sort foram paralelizados com o framework Fork/Join (ForkJoinPool e RecursiveAction), cujo escalonador por roubo de trabalho (work-stealing) distribui as subtarefas recursivas entre as threads, com um limiar de granularidade abaixo do qual a recursão prossegue sequencialmente. O Counting Sort paralelo usa histogramas locais por thread (sem locks), redução paralela por faixas de valores e escrita paralela em regiões disjuntas, limitando o número de histogramas quando k é grande em relação a n. O Bubble Sort foi paralelizado pelo Odd-Even Transposition Sort, sua formulação paralela clássica: as comparações de cada fase envolvem pares disjuntos e podem ser feitas simultaneamente, e as fases são separadas por uma barreira (Phaser). Para que o Speedup meça apenas o ganho do paralelismo, a versão serial de cada algoritmo executa exatamente o mesmo procedimento da versão paralela em uma única thread.
+
 
 ## Metodologia
-O *framework* experimental foi executado em uma estação equipada com **16 processadores lógicos** (`Runtime.getRuntime().availableProcessors() = 16`) sob Windows e **Java HotSpot 64-Bit Server VM (JDK 26)**. Antes da coleta de tempos, ciclos de *warmup* foram aplicados para estabilizar as otimizações do compilador *Just-In-Time* (HotSpot C2).
 
-As variáveis experimentais controladas foram:
-- **Modos e Threads**: Serial ($1$ thread) e Paralelo ($2, 4, 8$ e $16$ threads).
-- **Tamanhos de Entrada ($N$)**: $10.000, 25.000, 50.000, 100.000, 500.000$ e $1.000.000$ de inteiros.
-- **Natureza dos Conjuntos de Dados**: `ALEATORIO`, `INVERSAMENTE_ORDENADO`, `QUASE_ORDENADO` e `POUCOS_UNICOS`.
-- **Intervalo de Valores ($k$)**: $k \in \{1.000, 100.000, 1.000.000, 10.000.000\}$ em função do tempo para $N = 500.000$.
-- **Amostragem e Estatística**: **5 amostras independentes** por configuração (mesmas sementes determinísticas entre algoritmos), registrando-se Média, Desvio Padrão ($s$), Mediana, Coeficiente de Variação ($CV$), *Speedup* ($S_p = T_{serial} / T_{paralelo}$) e Eficiência ($E_p = S_p / p$).
+Foi desenvolvido em Java um framework de testes composto pelas classes ExecutorBenchmark (orquestração dos experimentos), GeradorDados (geração determinística das entradas) e ExportadorCSV (gravação dos resultados), além da interface comum AlgoritmoOrdenacao, que obriga cada algoritmo a oferecer um método serial e um paralelo parametrizado pelo número de threads. Os experimentos foram executados em um notebook Acer Nitro V com processador AMD Ryzen 7 7735HS, com 8 núcleos físicos e 16 threads via SMT (24 processadores lógicos visíveis à JVM), sistema operacional Windows 11 10.0 e OpenJDK 64-Bit Server VM (Java 25.0.5). Antes das medições, o framework executa ciclos de aquecimento da JVM para que o compilador Just-In-Time otimize os métodos medidos.
 
----
+O protocolo seguiu um projeto fatorial com quatro fatores: (1) número de threads: execução serial (1 thread) e paralela com 2, 4, 8 e 16 threads, sendo que o paralelismo do pool limita a quantidade de núcleos usados simultaneamente, o que permite investigar o efeito de disponibilizar mais ou menos núcleos ao algoritmo; (2) tamanho N: 10.000, 25.000, 50.000, 100.000, 500.000 e 1.000.000 de inteiros, com o Bubble Sort limitado a N = 50.000 por ser quadrático; (3) natureza dos dados: aleatório uniforme, inversamente ordenado, quase ordenado (10% dos elementos fora de posição) e poucos valores únicos (até 32 chaves); e (4) intervalo de valores [0..k], com k em {1.000; 100.000; 1.000.000; 10.000.000} para N = 500.000, comparando-se a execução serial com a paralela de 8 threads.
+
+Para cada configuração foram coletadas 5 amostras, com sementes pseudoaleatórias fixas, de modo que todos os algoritmos e quantidades de threads processem exatamente os mesmos vetores. O tempo foi medido com System.nanoTime() e cada resultado foi verificado quanto à ordenação correta. A análise estatística dos resultados obtidos calcula, por configuração, média, desvio padrão amostral (s), mediana, mínimo, máximo e coeficiente de variação (CV = s / média), além das métricas de desempenho paralelo Speedup (Sp = T1 / Tp) e Eficiência (Ep = Sp / p), interpretadas à luz da Lei de Amdahl, para identificar padrões de desempenho e comparar os algoritmos sob diferentes condições. Os dados foram gravados em três arquivos CSV (amostras individuais, resumo estatístico e experimento de intervalo de valores) e visualizados em gráficos gerados em Python, em Jupyter Notebook e em uma aplicação de gráficos dinâmicos em Java Swing.
+
 
 ## Resultados e Discussão
 
-### 4.1. Escalabilidade por Tamanho do Conjunto de Dados ($N$)
-![Figura 1](resultados/graficos_relatorio/fig1_escalabilidade_tamanho.png)
+### Escalabilidade em função do tamanho dos dados
 
-**Tabela 1 — Análise Estatística Comparativa dos 4 Algoritmos para $N = 50.000$ (Natureza Aleatória, 5 Amostras)**
+A Figura 1 mostra o crescimento do tempo de execução com N. As três classes de complexidade aparecem separadas por ordens de grandeza: para N = 50.000 elementos aleatórios, a execução serial levou em média 1.646,94 ms no Bubble Sort, 3,72 ms no Merge Sort, 2,54 ms no Quick Sort e 0,51 ms no Counting Sort. A Tabela 1 detalha a estatística das cinco amostras para esse tamanho.
 
-| Algoritmo | Modo | Threads | Média (ms) | Desvio (ms) | Mediana | CV (%) | Speedup | Eficiência |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Quick Sort | Serial | 1 | 3.179 | ±0.265 | 3.297 | 8.3% | 1.00x | 100.0% |
-| Quick Sort | Paralelo | 2 | 3.091 | ±0.532 | 2.847 | 17.2% | 1.03x | 51.4% |
-| Quick Sort | Paralelo | 4 | 2.220 | ±0.267 | 2.165 | 12.0% | 1.43x | 35.8% |
-| Quick Sort | Paralelo | 8 | 2.107 | ±0.069 | 2.082 | 3.3% | 1.51x | 18.9% |
-| Quick Sort | Paralelo | 16 | 2.764 | ±0.143 | 2.781 | 5.2% | 1.15x | 7.2% |
-| Merge Sort | Serial | 1 | 5.241 | ±0.079 | 5.276 | 1.5% | 1.00x | 100.0% |
-| Merge Sort | Paralelo | 2 | 3.495 | ±0.131 | 3.429 | 3.7% | 1.50x | 75.0% |
-| Merge Sort | Paralelo | 4 | 2.718 | ±0.192 | 2.736 | 7.1% | 1.93x | 48.2% |
-| Merge Sort | Paralelo | 8 | 2.775 | ±0.498 | 2.551 | 17.9% | 1.89x | 23.6% |
-| Merge Sort | Paralelo | 16 | 3.390 | ±0.201 | 3.341 | 5.9% | 1.55x | 9.7% |
-| Counting Sort | Serial | 1 | 0.802 | ±0.016 | 0.805 | 2.0% | 1.00x | 100.0% |
-| Counting Sort | Paralelo | 2 | 1.232 | ±0.124 | 1.213 | 10.1% | 0.65x | 32.6% |
-| Counting Sort | Paralelo | 4 | 1.439 | ±0.135 | 1.410 | 9.4% | 0.56x | 13.9% |
-| Counting Sort | Paralelo | 8 | 2.422 | ±0.941 | 2.068 | 38.8% | 0.33x | 4.1% |
-| Counting Sort | Paralelo | 16 | 3.781 | ±0.759 | 3.359 | 20.1% | 0.21x | 1.3% |
-| Bubble Sort | Serial | 1 | 2961.962 | ±38.092 | 2958.184 | 1.3% | 1.00x | 100.0% |
-| Bubble Sort | Paralelo | 2 | 678.466 | ±56.010 | 667.432 | 8.3% | 4.37x | 218.3% |
-| Bubble Sort | Paralelo | 4 | 137.258 | ±26.222 | 151.737 | 19.1% | 21.58x | 539.5% |
-| Bubble Sort | Paralelo | 8 | 33.835 | ±0.915 | 33.816 | 2.7% | 87.54x | 1094.3% |
-| Bubble Sort | Paralelo | 16 | 11.660 | ±1.212 | 10.921 | 10.4% | 254.03x | 1587.7% |
+**Figura 1 – Tempo médio de execução em função do tamanho N (serial e paralelo)**
 
+![Figura 1](resultados/graficos_relatorio\fig1_escalabilidade_tamanho.png)
 
-### 4.2. Desempenho Paralelo, Speedup e Eficiência por Número de Threads
-Em vetores de $N = 1.000.000$ de elementos:
-- O **Merge Sort** reduziu seu tempo médio de **123.025 ms** (Serial) para **21.098 ms** (16 threads), atingindo **Speedup de 5.83x**.
-- O **Quick Sort** reduziu seu tempo médio de **80.225 ms** (Serial) para **14.876 ms** (16 threads), atingindo **Speedup de 5.39x**.
-- O **Counting Sort** concluiu a execução serial em apenas **2.910 ms**, evidenciando que para algoritmos *memory-bound* ultrarrápidos o custo de criação de múltiplas estruturas locais de contagem satura a largura de banda de memória.
-- O **Bubble Sort** em blocos ($N = 50.000$) reduziu seu tempo de **2961.962 ms** (Serial) para **11.660 ms** (16 threads), um fator de aceleração de **254.03x** decorrente da redução quadrática $(N/p)^2$ em cada partição.
+*Fonte: elaborado pelos autores (2026).*
 
-![Figura 2](resultados/graficos_relatorio/fig2_tempo_por_threads.png)
+**Tabela 1 – Estatísticas para N = 50.000 (dados aleatórios, 5 amostras)**
 
-![Figura 3](resultados/graficos_relatorio/fig3_speedup_eficiencia.png)
+| Algoritmo | Modo | Threads | Média (ms) | Desvio (ms) | Mediana (ms) | CV | Speedup | Eficiência |
+|---|---|---|---|---|---|---|---|---|
+| Quick Sort | Serial | 1 | 2,539 | 0,115 | 2,508 | 4,5% | 1,00x | 100,0% |
+| Quick Sort | Paralelo | 2 | 1,874 | 0,423 | 1,719 | 22,6% | 1,35x | 67,7% |
+| Quick Sort | Paralelo | 4 | 1,432 | 0,403 | 1,279 | 28,1% | 1,77x | 44,3% |
+| Quick Sort | Paralelo | 8 | 1,236 | 0,179 | 1,190 | 14,5% | 2,05x | 25,7% |
+| Quick Sort | Paralelo | 16 | 1,591 | 0,621 | 1,301 | 39,0% | 1,60x | 10,0% |
+| Merge Sort | Serial | 1 | 3,718 | 0,071 | 3,741 | 1,9% | 1,00x | 100,0% |
+| Merge Sort | Paralelo | 2 | 2,165 | 0,077 | 2,176 | 3,6% | 1,72x | 85,9% |
+| Merge Sort | Paralelo | 4 | 1,500 | 0,070 | 1,530 | 4,6% | 2,48x | 62,0% |
+| Merge Sort | Paralelo | 8 | 1,314 | 0,041 | 1,300 | 3,1% | 2,83x | 35,4% |
+| Merge Sort | Paralelo | 16 | 1,472 | 0,163 | 1,419 | 11,1% | 2,52x | 15,8% |
+| Counting Sort | Serial | 1 | 0,505 | 0,069 | 0,477 | 13,7% | 1,00x | 100,0% |
+| Counting Sort | Paralelo | 2 | 0,670 | 0,030 | 0,671 | 4,5% | 0,75x | 37,7% |
+| Counting Sort | Paralelo | 4 | 0,818 | 0,078 | 0,837 | 9,5% | 0,62x | 15,4% |
+| Counting Sort | Paralelo | 8 | 0,872 | 0,055 | 0,870 | 6,4% | 0,58x | 7,2% |
+| Counting Sort | Paralelo | 16 | 1,660 | 0,319 | 1,812 | 19,2% | 0,30x | 1,9% |
+| Bubble Sort | Serial | 1 | 1.646,944 | 93,590 | 1.632,646 | 5,7% | 1,00x | 100,0% |
+| Bubble Sort | Paralelo | 2 | 1.479,507 | 773,735 | 1.304,010 | 52,3% | 1,11x | 55,7% |
+| Bubble Sort | Paralelo | 4 | 1.352,561 | 752,208 | 1.130,273 | 55,6% | 1,22x | 30,4% |
+| Bubble Sort | Paralelo | 8 | 2.477,039 | 1.338,744 | 3.174,406 | 54,0% | 0,66x | 8,3% |
+| Bubble Sort | Paralelo | 16 | 4.015,689 | 598,433 | 3.717,812 | 14,9% | 0,41x | 2,6% |
 
-**Tabela 2 — Análise Estatística de Alta Escala para $N = 1.000.000$ (Natureza Aleatória, 5 Amostras)**
+*Fonte: elaborado pelos autores (2026).*
 
-| Algoritmo | Modo | Threads | Média (ms) | Desvio (ms) | Mediana | CV (%) | Speedup | Eficiência |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Quick Sort | Serial | 1 | 80.225 | ±2.147 | 80.098 | 2.7% | 1.00x | 100.0% |
-| Quick Sort | Paralelo | 2 | 45.254 | ±4.015 | 43.163 | 8.9% | 1.77x | 88.6% |
-| Quick Sort | Paralelo | 4 | 31.266 | ±6.402 | 29.672 | 20.5% | 2.57x | 64.1% |
-| Quick Sort | Paralelo | 8 | 20.622 | ±2.167 | 19.153 | 10.5% | 3.89x | 48.6% |
-| Quick Sort | Paralelo | 16 | 14.876 | ±0.599 | 14.744 | 4.0% | 5.39x | 33.7% |
-| Merge Sort | Serial | 1 | 123.025 | ±2.598 | 122.405 | 2.1% | 1.00x | 100.0% |
-| Merge Sort | Paralelo | 2 | 67.707 | ±2.335 | 67.805 | 3.4% | 1.82x | 90.8% |
-| Merge Sort | Paralelo | 4 | 45.734 | ±2.780 | 43.877 | 6.1% | 2.69x | 67.2% |
-| Merge Sort | Paralelo | 8 | 27.358 | ±1.074 | 28.043 | 3.9% | 4.50x | 56.2% |
-| Merge Sort | Paralelo | 16 | 21.098 | ±1.207 | 20.922 | 5.7% | 5.83x | 36.4% |
-| Counting Sort | Serial | 1 | 2.910 | ±0.138 | 2.915 | 4.7% | 1.00x | 100.0% |
-| Counting Sort | Paralelo | 2 | 3.105 | ±0.428 | 3.017 | 13.8% | 0.94x | 46.9% |
-| Counting Sort | Paralelo | 4 | 2.809 | ±0.064 | 2.797 | 2.3% | 1.04x | 25.9% |
-| Counting Sort | Paralelo | 8 | 2.699 | ±0.134 | 2.736 | 5.0% | 1.08x | 13.5% |
-| Counting Sort | Paralelo | 16 | 4.422 | ±0.805 | 4.060 | 18.2% | 0.66x | 4.1% |
+### Speedup e eficiência por número de threads
 
+Para N = 1.000.000 (Tabela 2 e Figuras 2 e 3), os algoritmos de divisão e conquista foram os que mais se beneficiaram do paralelismo. O Merge Sort caiu de 121,34 ms (serial) para 29,04 ms com 8 threads (Speedup de 4,18x), e o Quick Sort caiu de 96,68 ms para 22,57 ms com 16 threads (Speedup de 4,28x). Ainda assim, a eficiência com 16 threads ficou em 26,0% e 26,8%, respectivamente: como prevê a Lei de Amdahl, as partes sequenciais (o primeiro particionamento do Quick Sort e a última intercalação do Merge Sort percorrem o vetor inteiro em uma única thread) e a disputa pela largura de banda da memória limitam o ganho. Há ainda um limite de hardware: o processador possui 8 núcleos físicos, de modo que acima de 8 threads os núcleos passam a ser compartilhados por duas threads via SMT (Simultaneous Multithreading), que dividem as mesmas unidades de execução e caches. Por isso, de 8 para 16 threads o Speedup passou de 4,18x para 4,16x no Merge Sort e de 4,15x para 4,28x no Quick Sort, chegando a cair: o custo de coordenar mais threads superou o ganho do SMT.
 
-### 4.3. Impacto da Natureza dos Dados e do Intervalo de Valores ($k$)
-![Figura 4](resultados/graficos_relatorio/fig4_impacto_natureza.png)
+Para cargas pequenas o comportamento se inverte: com N = 10.000 e 16 threads o Speedup foi de 0,74x no Quick Sort e 0,83x no Merge Sort, pois o custo de criar o pool e distribuir as tarefas é comparável ao próprio tempo de ordenação. O Counting Sort, por sua vez, já é muito rápido na versão serial (3,77 ms para N = 1.000.000) e seu melhor Speedup foi de 1,34x (8 threads): por ser limitado pela memória, e não pelo processamento, dividir os acessos entre núcleos não reduz o gargalo, e as fases extras de alocação e redução dos histogramas locais anulam boa parte do ganho.
 
-![Figura 5](resultados/graficos_relatorio/fig5_impacto_intervalo_valores.png)
+O Bubble Sort Odd-Even (N = 50.000) reduziu o tempo de 1.646,94 ms para 1.352,56 ms com 4 threads (Speedup de 1,22x), com eficiência de 2,6% em 16 threads. Como as versões serial e paralela executam as mesmas fases e comparações, esse ganho decorre exclusivamente da divisão de cada fase entre as threads. O limite vem da sincronização: o algoritmo executa até N fases, cada uma terminada por uma barreira; com mais threads, o trabalho por fase de cada thread diminui (N / 2p comparações), enquanto o custo de cada barreira aumenta, de modo que a espera passa a dominar o tempo total.
 
-**Tabela 3 — Impacto do Intervalo de Valores $[0..k]$ em Função do Tempo ($N = 500.000$, 5 Amostras)**
+**Figura 2 – Tempo médio e desvio padrão (5 amostras) por número de threads**
 
-| Algoritmo | Modo | Threads | Intervalo Máximo (k) | Média (ms) | Desvio (ms) | Speedup |
-| --- | --- | --- | --- | --- | --- | --- |
-| Quick Sort | Serial | 1 | 1.000 | 32.453 | ±1.086 | 1.00x |
-| Quick Sort | Paralelo | 8 | 1.000 | 8.693 | ±0.500 | 3.73x |
-| Merge Sort | Serial | 1 | 1.000 | 54.270 | ±1.873 | 1.00x |
-| Merge Sort | Paralelo | 8 | 1.000 | 11.634 | ±0.341 | 4.66x |
-| Counting Sort | Serial | 1 | 1.000 | 1.158 | ±0.035 | 1.00x |
-| Counting Sort | Paralelo | 8 | 1.000 | 1.444 | ±0.123 | 0.80x |
-| Quick Sort | Serial | 1 | 100.000 | 43.993 | ±1.407 | 1.00x |
-| Quick Sort | Paralelo | 8 | 100.000 | 10.610 | ±1.357 | 4.15x |
-| Merge Sort | Serial | 1 | 100.000 | 64.093 | ±2.465 | 1.00x |
-| Merge Sort | Paralelo | 8 | 100.000 | 14.868 | ±0.698 | 4.31x |
-| Counting Sort | Serial | 1 | 100.000 | 2.273 | ±0.246 | 1.00x |
-| Counting Sort | Paralelo | 8 | 100.000 | 2.341 | ±0.176 | 0.97x |
-| Quick Sort | Serial | 1 | 1.000.000 | 46.701 | ±1.743 | 1.00x |
-| Quick Sort | Paralelo | 8 | 1.000.000 | 9.999 | ±0.687 | 4.67x |
-| Merge Sort | Serial | 1 | 1.000.000 | 64.876 | ±4.659 | 1.00x |
-| Merge Sort | Paralelo | 8 | 1.000.000 | 15.288 | ±0.827 | 4.24x |
-| Counting Sort | Serial | 1 | 1.000.000 | 8.476 | ±0.440 | 1.00x |
-| Counting Sort | Paralelo | 8 | 1.000.000 | 8.298 | ±0.313 | 1.02x |
-| Quick Sort | Serial | 1 | 10.000.000 | 46.061 | ±5.863 | 1.00x |
-| Quick Sort | Paralelo | 8 | 10.000.000 | 10.933 | ±0.596 | 4.21x |
-| Merge Sort | Serial | 1 | 10.000.000 | 70.614 | ±4.106 | 1.00x |
-| Merge Sort | Paralelo | 8 | 10.000.000 | 16.682 | ±0.634 | 4.23x |
-| Counting Sort | Serial | 1 | 10.000.000 | 19.487 | ±1.859 | 1.00x |
-| Counting Sort | Paralelo | 8 | 10.000.000 | 282.910 | ±184.677 | 0.07x |
+![Figura 2](resultados/graficos_relatorio\fig2_tempo_por_threads.png)
 
+*Fonte: elaborado pelos autores (2026).*
 
-### 4.4. Estabilidade Estatística das 5 Amostras e Gráficos Dinâmicos (Java Swing)
-![Figura 6](resultados/graficos_relatorio/fig6_estabilidade_amostras_boxplot.png)
+**Figura 3 – Speedup (Sp) e Eficiência (Ep) em função do número de threads**
+
+![Figura 3](resultados/graficos_relatorio\fig3_speedup_eficiencia.png)
+
+*Fonte: elaborado pelos autores (2026).*
+
+**Tabela 2 – Estatísticas para N = 1.000.000 (dados aleatórios, 5 amostras)**
+
+| Algoritmo | Modo | Threads | Média (ms) | Desvio (ms) | Mediana (ms) | CV | Speedup | Eficiência |
+|---|---|---|---|---|---|---|---|---|
+| Quick Sort | Serial | 1 | 96,676 | 14,940 | 100,213 | 15,5% | 1,00x | 100,0% |
+| Quick Sort | Paralelo | 2 | 44,995 | 1,757 | 45,876 | 3,9% | 2,15x | 107,4% |
+| Quick Sort | Paralelo | 4 | 27,803 | 3,050 | 27,039 | 11,0% | 3,48x | 86,9% |
+| Quick Sort | Paralelo | 8 | 23,297 | 3,332 | 22,852 | 14,3% | 4,15x | 51,9% |
+| Quick Sort | Paralelo | 16 | 22,572 | 1,583 | 22,407 | 7,0% | 4,28x | 26,8% |
+| Merge Sort | Serial | 1 | 121,337 | 5,605 | 121,216 | 4,6% | 1,00x | 100,0% |
+| Merge Sort | Paralelo | 2 | 59,603 | 0,305 | 59,424 | 0,5% | 2,04x | 101,8% |
+| Merge Sort | Paralelo | 4 | 37,010 | 2,080 | 37,782 | 5,6% | 3,28x | 82,0% |
+| Merge Sort | Paralelo | 8 | 29,043 | 1,905 | 28,050 | 6,6% | 4,18x | 52,2% |
+| Merge Sort | Paralelo | 16 | 29,162 | 2,235 | 27,808 | 7,7% | 4,16x | 26,0% |
+| Counting Sort | Serial | 1 | 3,769 | 0,152 | 3,770 | 4,0% | 1,00x | 100,0% |
+| Counting Sort | Paralelo | 2 | 3,448 | 1,021 | 2,959 | 29,6% | 1,09x | 54,6% |
+| Counting Sort | Paralelo | 4 | 3,399 | 1,125 | 3,124 | 33,1% | 1,11x | 27,7% |
+| Counting Sort | Paralelo | 8 | 2,808 | 0,157 | 2,845 | 5,6% | 1,34x | 16,8% |
+| Counting Sort | Paralelo | 16 | 3,274 | 0,282 | 3,275 | 8,6% | 1,15x | 7,2% |
+
+*Fonte: elaborado pelos autores (2026).*
+
+### Impacto da natureza dos dados e do intervalo de valores
+
+A Figura 4 compara as quatro naturezas de entrada para N = 100.000. Com pivô por mediana de três e particionamento de Hoare, o Quick Sort manteve o comportamento O(n log n) mesmo nas entradas inversamente ordenadas e com muitas chaves repetidas, que levariam uma implementação com pivô fixo ao pior caso O(n²). O Merge Sort foi mais rápido nas entradas quase ordenadas e com poucas chaves distintas, pois verifica se dois subvetores adjacentes já estão em ordem antes de intercalá-los.
+
+A Figura 5 e a Tabela 3 mostram o tempo em função do intervalo de valores [0..k] para N = 500.000. Quick Sort e Merge Sort, baseados em comparações, praticamente não variam com k. Já o Counting Sort depende diretamente de k: com k = 100.000 levou 1,26 ms (serial), mas com k = 10.000.000 subiu para 13,94 ms, pois o vetor de contagem passa a ser 20 vezes maior que a entrada (o Quick Sort serial levou 27,67 ms nesse cenário). Na versão paralela, cada thread precisaria de um histograma próprio de tamanho k, multiplicando a memória alocada; por isso a implementação limita o número de histogramas a 2n/k e, quando esse limite é 1, realiza a contagem sequencialmente. Assim, com k = 10.000.000 a versão de 8 threads registrou 14,74 ms, próximo da serial, evitando a degradação causada pela alocação de vários histogramas grandes.
+
+**Figura 4 – Impacto da natureza dos dados no tempo médio de execução (N = 100.000)**
+
+![Figura 4](resultados/graficos_relatorio\fig4_impacto_natureza.png)
+
+*Fonte: elaborado pelos autores (2026).*
+
+**Figura 5 – Tempo de execução em função do intervalo de valores [0..k] (N = 500.000)**
+
+![Figura 5](resultados/graficos_relatorio\fig5_impacto_intervalo_valores.png)
+
+*Fonte: elaborado pelos autores (2026).*
+
+**Tabela 3 – Impacto do intervalo de valores [0..k] (N = 500.000, 5 amostras)**
+
+| Algoritmo | Modo | Threads | k | Média (ms) | Desvio (ms) | Speedup |
+|---|---|---|---|---|---|---|
+| Counting Sort | Serial | 1 | 1.000 | 0,444 | 0,017 | 1,00x |
+| Counting Sort | Paralelo | 8 | 1.000 | 0,609 | 0,124 | 0,73x |
+| Merge Sort | Serial | 1 | 1.000 | 29,108 | 0,470 | 1,00x |
+| Merge Sort | Paralelo | 8 | 1.000 | 6,480 | 0,367 | 4,49x |
+| Quick Sort | Serial | 1 | 1.000 | 18,696 | 0,323 | 1,00x |
+| Quick Sort | Paralelo | 8 | 1.000 | 5,534 | 0,262 | 3,38x |
+| Counting Sort | Serial | 1 | 100.000 | 1,264 | 0,056 | 1,00x |
+| Counting Sort | Paralelo | 8 | 100.000 | 1,022 | 0,153 | 1,24x |
+| Merge Sort | Serial | 1 | 100.000 | 40,330 | 3,197 | 1,00x |
+| Merge Sort | Paralelo | 8 | 100.000 | 10,519 | 0,642 | 3,83x |
+| Quick Sort | Serial | 1 | 100.000 | 27,838 | 1,081 | 1,00x |
+| Quick Sort | Paralelo | 8 | 100.000 | 10,800 | 1,201 | 2,58x |
+| Counting Sort | Serial | 1 | 1.000.000 | 4,591 | 0,475 | 1,00x |
+| Counting Sort | Paralelo | 8 | 1.000.000 | 8,110 | 3,010 | 0,57x |
+| Merge Sort | Serial | 1 | 1.000.000 | 37,192 | 1,121 | 1,00x |
+| Merge Sort | Paralelo | 8 | 1.000.000 | 9,847 | 0,508 | 3,78x |
+| Quick Sort | Serial | 1 | 1.000.000 | 27,856 | 0,716 | 1,00x |
+| Quick Sort | Paralelo | 8 | 1.000.000 | 7,321 | 0,366 | 3,80x |
+| Counting Sort | Serial | 1 | 10.000.000 | 13,944 | 0,378 | 1,00x |
+| Counting Sort | Paralelo | 8 | 10.000.000 | 14,739 | 1,183 | 0,95x |
+| Merge Sort | Serial | 1 | 10.000.000 | 40,782 | 4,743 | 1,00x |
+| Merge Sort | Paralelo | 8 | 10.000.000 | 13,674 | 1,218 | 2,98x |
+| Quick Sort | Serial | 1 | 10.000.000 | 27,668 | 1,331 | 1,00x |
+| Quick Sort | Paralelo | 8 | 10.000.000 | 8,272 | 0,584 | 3,34x |
+
+*Fonte: elaborado pelos autores (2026).*
+
+### Variabilidade das amostras e gráficos dinâmicos
+
+A Figura 6 apresenta a dispersão das cinco amostras para N = 1.000.000. O coeficiente de variação mediano nesse tamanho foi de 7,4%, indicando medições estáveis após o aquecimento da JVM; a variabilidade é maior nas cargas pequenas, em que interferências do sistema operacional e do coletor de lixo têm peso relativo maior. Como ponto extra, foi desenvolvida uma aplicação de gráficos dinâmicos em Java Swing (Figura 7), que lê os CSVs ou executa novos testes e permite filtrar em tempo real por natureza dos dados, tamanho, número de threads e escala logarítmica, com dicas interativas sobre cada ponto medido.
+
+**Figura 6 – Dispersão das 5 amostras para N = 1.000.000**
+
+![Figura 6](resultados/graficos_relatorio\fig6_estabilidade_amostras_boxplot.png)
+
+*Fonte: elaborado pelos autores (2026).*
+
+**Figura 7 – Gráfico dinâmico gerado pela aplicação em Java Swing**
 
 ![Figura 7](resultados/graficos_swing/swing_tempo_por_tamanho.png)
 
----
+*Fonte: elaborado pelos autores (2026).*
+
 
 ## Conclusão
-Os resultados obtidos comprovam experimentalmente que a paralelização em Java por meio do `ForkJoinPool` proporciona ganhos substanciais de desempenho em algoritmos de divisão e conquista (*Merge Sort* e *Quick Sort*) quando aplicados a conjuntos de dados volumosos ($N \ge 100.000$), alcançando *Speedups* de até **5.83x** e **5.39x**. Demonstrou-se ainda que o *Counting Sort* oferece o menor tempo de resposta absoluto quando o domínio de valores inteiros $k$ é restrito, mas sofre degradação proporcional a $k$ quando o intervalo atinge a casa de dezenas de milhões ($k = 10^7$), momento em que os algoritmos baseados em comparação $O(n \log n)$ tornam-se mais vantajosos.
 
----
+Os experimentos mostraram que o ganho com paralelismo depende tanto do algoritmo quanto do volume de dados. Para grandes volumes (N ≥ 100.000), as versões paralelas do Merge Sort e do Quick Sort com Fork/Join oferecem o melhor equilíbrio entre tempo absoluto e escalabilidade, com Speedups de 4,18x e 4,28x, embora a eficiência caia à medida que se adicionam threads. O Counting Sort é o mais rápido quando k é pequeno em relação a N, mas, sendo limitado pela memória, quase não escala com mais núcleos e degrada quando k cresce. O Bubble Sort Odd-Even confirma que um algoritmo quadrático pode ser acelerado pela divisão do trabalho de cada fase, mas o grande número de barreiras limita o Speedup. Por fim, para cargas pequenas o custo de coordenação das threads supera o ganho, o que reforça o uso de limiares de granularidade e a escolha do algoritmo adequado ao perfil dos dados antes de simplesmente aumentar o número de threads.
+
 
 ## Referências
-- AMDAHL, Gene M. Validity of the single processor approach to achieving large scale computing capabilities. In: **AFIPS Conference Proceedings**, v. 30, p. 483-485, 1967.
-- CORMEN, Thomas H.; LEISERSON, Charles E.; RIVEST, Ronald L.; STEIN, Clifford. **Algoritmos: Teoria e Prática**. 4. ed. Rio de Janeiro: GEN LTC, 2024.
-- GOETZ, Brian et al. **Java Concurrency in Practice**. Boston: Addison-Wesley Professional, 2006.
-- LEA, Doug. A Java Fork/Join Framework. In: **Proceedings of the ACM 2000 Conference on Java Grande**, p. 36-43, 2000.
-- ORACLE. **Java Platform, Standard Edition & JDK 26 API Specification**. Disponível em: https://docs.oracle.com/en/java/javase/. Acesso em: 27 out. 2026.
-- SEDGEWICK, Robert; WAYNE, Kevin. **Algorithms**. 4. ed. Boston: Addison-Wesley Professional, 2011.
 
----
+AMDAHL, G. M. Validity of the single processor approach to achieving large scale computing capabilities. In: **AFIPS Spring Joint Computer Conference**, v. 30, p. 483-485, 1967.
 
-## Anexos — Códigos das Implementações e Link do GitHub
-- **Repositório GitHub do Projeto:** [https://github.com/Victor-Lins14/Comp_Paralela](https://github.com/Victor-Lins14/Comp_Paralela)
-- Código-fonte das implementações:
-  - [`src/algoritmos/QuickSort.java`](src/algoritmos/QuickSort.java)
-  - [`src/algoritmos/MergeSort.java`](src/algoritmos/MergeSort.java)
-  - [`src/algoritmos/CountingSort.java`](src/algoritmos/CountingSort.java)
-  - [`src/algoritmos/BubbleSort.java`](src/algoritmos/BubbleSort.java)
-  - [`src/benchmark/ExecutorBenchmark.java`](src/benchmark/ExecutorBenchmark.java)
-  - [`src/gui/BenchmarkSwingApp.java`](src/gui/BenchmarkSwingApp.java)
-  - [`src/gui/PainelGraficoDinamico.java`](src/gui/PainelGraficoDinamico.java)
+CORMEN, T. H.; LEISERSON, C. E.; RIVEST, R. L.; STEIN, C. **Algoritmos**: teoria e prática. 4. ed. Rio de Janeiro: GEN LTC, 2024.
+
+GOETZ, B. et al. **Java Concurrency in Practice**. Boston: Addison-Wesley, 2006.
+
+GRAMA, A.; GUPTA, A.; KARYPIS, G.; KUMAR, V. **Introduction to Parallel Computing**. 2. ed. Harlow: Addison-Wesley, 2003.
+
+LEA, D. A Java Fork/Join Framework. In: **Proceedings of the ACM 2000 Conference on Java Grande**. New York: ACM, 2000. p. 36-43.
+
+ORACLE. **Java Platform, Standard Edition API Specification**: java.util.concurrent. Disponível em: https://docs.oracle.com/en/java/javase/. Acesso em: 30 out. 2026.
+
+SEDGEWICK, R.; WAYNE, K. **Algorithms**. 4. ed. Boston: Addison-Wesley, 2011.
+
+
+## Anexos
+
+Repositório com o código-fonte completo, CSVs, aplicação Swing e Jupyter Notebook: [https://github.com/Victor-Lins14/Comp_Paralela](https://github.com/Victor-Lins14/Comp_Paralela)
+
+- [Anexo A — Quick Sort (src/algoritmos/QuickSort.java)](src/algoritmos/QuickSort.java)
+- [Anexo B — Merge Sort (src/algoritmos/MergeSort.java)](src/algoritmos/MergeSort.java)
+- [Anexo C — Counting Sort (src/algoritmos/CountingSort.java)](src/algoritmos/CountingSort.java)
+- [Anexo D — Bubble Sort Odd-Even (src/algoritmos/BubbleSort.java)](src/algoritmos/BubbleSort.java)
+- [Anexo E — Framework de testes (src/benchmark/ExecutorBenchmark.java)](src/benchmark/ExecutorBenchmark.java)

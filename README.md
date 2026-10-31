@@ -13,8 +13,8 @@ Repositório oficial do trabalho experimental de **Programação Concorrente e P
   - [`AlgoritmoOrdenacao.java`](src/algoritmos/AlgoritmoOrdenacao.java): Interface comum para execuções seriais e paralelas.
   - [`QuickSort.java`](src/algoritmos/QuickSort.java): Quick Sort Serial e Paralelo (`ForkJoinPool` + `RecursiveAction`, pivô por mediana de três e particionamento de Hoare).
   - [`MergeSort.java`](src/algoritmos/MergeSort.java): Merge Sort Serial e Paralelo (`ForkJoinPool` + `RecursiveAction`, vetor auxiliar único pré-alocado).
-  - [`CountingSort.java`](src/algoritmos/CountingSort.java): Counting Sort Serial e Paralelo (`ForkJoinPool` com histogramas locais por thread sem contenção de locks).
-  - [`BubbleSort.java`](src/algoritmos/BubbleSort.java): Bubble Sort Serial e Paralelo (decomposição em blocos concorrentes + intercalação hierárquica e variante *Odd-Even Transposition Sort* com `Phaser`).
+  - [`CountingSort.java`](src/algoritmos/CountingSort.java): Counting Sort Serial e Paralelo (`ForkJoinPool` com histogramas locais por thread sem contenção de locks e número de histogramas limitado a 2n/k quando o intervalo de valores é grande).
+  - [`BubbleSort.java`](src/algoritmos/BubbleSort.java): Bubble Sort na formulação *Odd-Even Transposition Sort* — versão serial (1 thread) e paralela (fases divididas entre threads e sincronizadas por `Phaser`). Serial e paralelo executam o mesmo algoritmo, então o Speedup mede apenas o ganho do paralelismo.
 - [`src/benchmark/ExecutorBenchmark.java`](src/benchmark/ExecutorBenchmark.java): Framework de avaliação com *JVM Warmup*, variação de tamanhos ($N$), naturezas de dados, intervalos de valores ($k$), contagens de threads ($1, 2, 4, 8, 16$) e coleta de 5 amostras por configuração.
 - [`src/gui/`](src/gui/):
   - [`BenchmarkSwingApp.java`](src/gui/BenchmarkSwingApp.java): Aplicação desktop interativa em Java Swing.
@@ -26,9 +26,10 @@ Repositório oficial do trabalho experimental de **Programação Concorrente e P
   - `benchmark_resumo.csv`: Estatísticas consolidadas (Média, Desvio Padrão, Mediana, Mínimo, Máximo, Speedup e Eficiência).
   - `benchmark_amostras.csv`: Medições individuais das 5 amostras de cada teste.
   - `benchmark_intervalos.csv`: Avaliação do intervalo de valores $[0..k]$ em função do tempo.
+  - `ambiente.txt`: Processador, núcleos lógicos, SO e versão do Java da máquina que executou o benchmark (usado pelo relatório).
   - `graficos_swing/` e `graficos_relatorio/`: Gráficos gerados em alta resolução (`.png`).
 - [`analise_desempenho.ipynb`](analise_desempenho.ipynb): Jupyter Notebook com análises estatísticas e visualizações adicionais.
-- [`Relatorio_Analise_Desempenho_UNIFOR.docx`](Relatorio_Analise_Desempenho_UNIFOR.docx) e [`RELATORIO_UNIFOR.md`](RELATORIO_UNIFOR.md): Relatório completo formatado segundo o modelo oficial da UNIFOR.
+- [`Relatorio_Analise_Desempenho_UNIFOR.docx`](Relatorio_Analise_Desempenho_UNIFOR.docx) e [`RELATORIO_UNIFOR.md`](RELATORIO_UNIFOR.md): Relatório completo, gerado sobre o modelo oficial [`templates/Modelo-Artigo2.docx`](templates/Modelo-Artigo2.docx).
 
 ---
 
@@ -48,7 +49,9 @@ java -cp out "-Djava.awt.headless=true" Main --cli
 ```
 
 ### 3. Atualizar Gráficos e Relatório Word (.docx)
+Todos os números do relatório são lidos dos CSVs. Autores e nome comercial do processador ficam no topo de `scripts/gerar_relatorio_unifor.py`.
 ```powershell
+pip install pandas matplotlib numpy python-docx
 python scripts/gerar_graficos.py
 python scripts/gerar_relatorio_unifor.py
 ```

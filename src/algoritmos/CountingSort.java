@@ -2,18 +2,26 @@ package algoritmos;
 
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.RecursiveAction;
 
 /**
  * Implementação Serial e Paralela do algoritmo Counting Sort.
  * Complexidade de tempo O(n + k), onde n é o tamanho do vetor e k é a amplitude
  * do intervalo de valores (max - min + 1).
- * A versão paralela utiliza o framework ForkJoinPool, onde cada thread aloca e
- * popula seu histograma local em paralelo (evitando contenção de locks e distribuindo
- * a alocação de memória pelos canais dos núcleos) e reconstrói as faixas do vetor
- * ordenado concorrentemente.
+ *
+ * A versão paralela utiliza o framework ForkJoinPool em quatro fases:
+ * (1) busca paralela de mínimo e máximo; (2) histogramas locais por thread, sem
+ * contenção de locks; (3) redução paralela dos histogramas por faixa de valores;
+ * (4) reconstrução paralela do vetor ordenado.
+ *
+ * Granularidade adaptativa: cada thread aloca um histograma de tamanho k, logo a
+ * memória extra é O(p·k). Quando k é grande em relação a n, alocar e reduzir p
+ * histogramas custa mais do que contar os n elementos. Por isso o número de threads
+ * da contagem é limitado a 2n/k; se esse limite for 1, a contagem é feita
+ * sequencialmente (o que evita alocar, por exemplo, 8 × 10.000.000 inteiros).
  */
 public class CountingSort implements AlgoritmoOrdenacao {
+
+    private static final int TAMANHO_MINIMO_PARALELO = 4096;
 
     @Override
     public String getNome() {
@@ -33,10 +41,11 @@ public class CountingSort implements AlgoritmoOrdenacao {
             if (val < min) min = val;
             else if (val > max) max = val;
         }
+        contarEReconstruirSerial(dados, min, max - min + 1);
+    }
 
-        int amplitude = max - min + 1;
+    private static void contarEReconstruirSerial(int[] dados, int min, int amplitude) {
         int[] contagem = new int[amplitude];
-
         for (int valor : dados) {
             contagem[valor - min]++;
         }
@@ -56,24 +65,24 @@ public class CountingSort implements AlgoritmoOrdenacao {
         if (dados == null || dados.length <= 1) {
             return;
         }
-        if (numThreads <= 1 || dados.length < 4096) {
+        if (numThreads <= 1 || dados.length < TAMANHO_MINIMO_PARALELO) {
             ordenarSerial(dados);
             return;
         }
 
         ForkJoinPool pool = new ForkJoinPool(numThreads);
         try {
-            int n = dados.length;
-            int tamanhoBloco = (n + numThreads - 1) / numThreads;
-            int threadsAtivas = (n + tamanhoBloco - 1) / tamanhoBloco;
+            final int n = dados.length;
 
-            // Fase 1: Descoberta paralela de Mínimo e Máximo
-            int[][] minMaxPorThread = new int[threadsAtivas][2];
-            ForkJoinTask<?>[] tarefasMinMax = new ForkJoinTask<?>[threadsAtivas];
-            for (int t = 0; t < threadsAtivas; t++) {
+            // Fase 1: Descoberta paralela de mínimo e máximo
+            int blocoMinMax = (n + numThreads - 1) / numThreads;
+            int threadsMinMax = (n + blocoMinMax - 1) / blocoMinMax;
+            int[][] minMaxPorThread = new int[threadsMinMax][2];
+            ForkJoinTask<?>[] tarefasMinMax = new ForkJoinTask<?>[threadsMinMax];
+            for (int t = 0; t < threadsMinMax; t++) {
                 final int id = t;
-                final int inicio = t * tamanhoBloco;
-                final int fim = Math.min(n, inicio + tamanhoBloco);
+                final int inicio = t * blocoMinMax;
+                final int fim = Math.min(n, inicio + blocoMinMax);
                 tarefasMinMax[t] = pool.submit(() -> {
                     int localMin = dados[inicio];
                     int localMax = dados[inicio];
@@ -92,7 +101,7 @@ public class CountingSort implements AlgoritmoOrdenacao {
 
             int minGlobal = minMaxPorThread[0][0];
             int maxGlobal = minMaxPorThread[0][1];
-            for (int t = 1; t < threadsAtivas; t++) {
+            for (int t = 1; t < threadsMinMax; t++) {
                 if (minMaxPorThread[t][0] < minGlobal) minGlobal = minMaxPorThread[t][0];
                 if (minMaxPorThread[t][1] > maxGlobal) maxGlobal = minMaxPorThread[t][1];
             }
@@ -100,7 +109,16 @@ public class CountingSort implements AlgoritmoOrdenacao {
             final int min = minGlobal;
             final int amplitude = maxGlobal - minGlobal + 1;
 
-            // Fase 2: Alocação e contagem paralela de histogramas locais dentro de cada worker thread
+            // Granularidade adaptativa: limita o número de histogramas locais a 2n/k
+            long limitePorMemoria = Math.max(1L, (2L * n) / amplitude);
+            final int threadsAtivas = (int) Math.min(threadsMinMax, limitePorMemoria);
+            if (threadsAtivas <= 1) {
+                contarEReconstruirSerial(dados, min, amplitude);
+                return;
+            }
+            final int tamanhoBloco = (n + threadsAtivas - 1) / threadsAtivas;
+
+            // Fase 2: Alocação e contagem paralela de histogramas locais em cada worker
             final int[][] contagensLocais = new int[threadsAtivas][];
             ForkJoinTask<?>[] tarefasContagem = new ForkJoinTask<?>[threadsAtivas];
             for (int t = 0; t < threadsAtivas; t++) {
@@ -120,11 +138,10 @@ public class CountingSort implements AlgoritmoOrdenacao {
             }
 
             // Fase 3: Redução paralela por faixa de valores
-            int blocoAmplitude = (amplitude + threadsAtivas - 1) / threadsAtivas;
-            int[] somaPorFaixa = new int[threadsAtivas];
+            final int blocoAmplitude = (amplitude + threadsAtivas - 1) / threadsAtivas;
+            final int[] somaPorFaixa = new int[threadsAtivas];
+            final int[] histBase = contagensLocais[0];
             ForkJoinTask<?>[] tarefasReducao = new ForkJoinTask<?>[threadsAtivas];
-            int[] histBase = contagensLocais[0];
-
             for (int t = 0; t < threadsAtivas; t++) {
                 final int idFaixa = t;
                 final int vInicio = t * blocoAmplitude;
@@ -146,7 +163,7 @@ public class CountingSort implements AlgoritmoOrdenacao {
                 task.join();
             }
 
-            // Cálculo dos offsets iniciais de escrita de cada faixa
+            // Cálculo dos offsets iniciais de escrita de cada faixa (soma de prefixos)
             int[] offsetInicioFaixa = new int[threadsAtivas];
             int acumulado = 0;
             for (int t = 0; t < threadsAtivas; t++) {
@@ -154,7 +171,7 @@ public class CountingSort implements AlgoritmoOrdenacao {
                 acumulado += somaPorFaixa[t];
             }
 
-            // Fase 4: Escrita paralela no vetor de saída
+            // Fase 4: Escrita paralela no vetor de saída (faixas disjuntas)
             ForkJoinTask<?>[] tarefasEscrita = new ForkJoinTask<?>[threadsAtivas];
             for (int t = 0; t < threadsAtivas; t++) {
                 final int vInicio = t * blocoAmplitude;

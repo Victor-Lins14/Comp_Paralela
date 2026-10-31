@@ -1,0 +1,6 @@
+processadores_logicos=24
+processador=Intel64 Family 6 Model 183 Stepping 1, GenuineIntel
+java_version=25.0.5
+java_vm=OpenJDK 64-Bit Server VM
+sistema_operacional=Windows 11 10.0
+memoria_max_jvm_mb=4020

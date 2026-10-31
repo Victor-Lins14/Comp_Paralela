@@ -99,8 +99,7 @@ def gerar_graficos():
         ax.grid(True, which='both', linestyle='--', alpha=0.4)
         ax.legend(frameon=True, facecolor='white', fontsize=9)
 
-    plt.suptitle("Figura 1 — Escalabilidade do Tempo de Execução em Função do Tamanho da Entrada (N)",
-                 fontsize=13, fontweight='bold', y=1.02)
+    # (título da figura fica na legenda do relatório, padrão ABNT)
     plt.tight_layout()
     plt.savefig(os.path.join(OUT_DIR, "fig1_escalabilidade_tamanho.png"), bbox_inches='tight', dpi=180)
     plt.close(fig)
@@ -138,8 +137,7 @@ def gerar_graficos():
             ax.text(rect.get_x() + rect.get_width() / 2.0, altura + max_y * 0.025,
                     f"{media:.2f} ms\n({spd:.2f}x)", ha='center', va='bottom', fontsize=8, fontweight='bold')
 
-    plt.suptitle("Figura 2 — Tempo Médio de Execução e Desvio Padrão (5 Amostras) por Número de Threads",
-                 fontsize=13, fontweight='bold', y=1.01)
+    # (título da figura fica na legenda do relatório, padrão ABNT)
     plt.tight_layout()
     plt.savefig(os.path.join(OUT_DIR, "fig2_tempo_por_threads.png"), bbox_inches='tight', dpi=180)
     plt.close(fig)
@@ -157,22 +155,33 @@ def gerar_graficos():
         ax1.plot(g['Threads'], g['Speedup'], label=f"{alg} (N=1.000.000)",
                  color=CORES[alg], marker='o', linewidth=2.4, markersize=6)
 
+    # Bubble Sort (Odd-Even) é limitado a N = 50.000 por ser O(n²)
+    sub_bubble = df_resumo[(df_resumo['NaturezaDados'] == 'ALEATORIO') &
+                           (df_resumo['Tamanho'] == 50000) &
+                           (df_resumo['Algoritmo'] == 'Bubble Sort')].sort_values('Threads')
+    if not sub_bubble.empty:
+        ax1.plot(sub_bubble['Threads'], sub_bubble['Speedup'], label="Bubble Sort Odd-Even (N=50.000)",
+                 color=CORES['Bubble Sort'], marker='^', linewidth=2.2, markersize=6, linestyle='--')
+
     ax1.axhline(1.0, color='#64748B', linestyle='--', linewidth=1.2, label='Referência Serial (1.0x)')
-    ax1.set_title("Speedup (Sp = T1 / Tp) — Algoritmos Rápidos (N = 1.000.000)", fontsize=11, fontweight='bold')
+    ax1.set_title("Speedup (Sp = T1 / Tp) por Número de Threads", fontsize=11, fontweight='bold')
     ax1.set_xlabel("Número de Threads (p)", fontsize=10)
     ax1.set_ylabel("Speedup (Sp)", fontsize=10)
     ax1.set_xticks([1, 2, 4, 8, 16])
     ax1.grid(True, linestyle='--', alpha=0.45)
     ax1.legend(fontsize=9)
 
-    # Painel B: Eficiência Paralela (%) para N = 1.000.000 + Speedup de Bloco do Bubble Sort (N = 100.000)
+    # Painel B: Eficiência Paralela (%) — N = 1.000.000 e Bubble Sort Odd-Even (N = 50.000)
     ax2 = axes[1]
     for alg in ['Quick Sort', 'Merge Sort', 'Counting Sort']:
         g = sub_1m[sub_1m['Algoritmo'] == alg].sort_values('Threads')
         ax2.plot(g['Threads'], g['Eficiencia'] * 100.0, label=f"Eficiência {alg}",
                  color=CORES[alg], marker='s', linewidth=2.2, markersize=6)
+    if not sub_bubble.empty:
+        ax2.plot(sub_bubble['Threads'], sub_bubble['Eficiencia'] * 100.0, label="Eficiência Bubble Sort (N=50.000)",
+                 color=CORES['Bubble Sort'], marker='^', linewidth=2.0, markersize=6, linestyle='--')
 
-    ax2.set_title("Eficiência Paralela Ep = (Sp / p) × 100% (N = 1.000.000)", fontsize=11, fontweight='bold')
+    ax2.set_title("Eficiência Paralela Ep = (Sp / p) × 100%", fontsize=11, fontweight='bold')
     ax2.set_xlabel("Número de Threads (p)", fontsize=10)
     ax2.set_ylabel("Eficiência por Núcleo (%)", fontsize=10)
     ax2.set_xticks([1, 2, 4, 8, 16])
@@ -180,8 +189,7 @@ def gerar_graficos():
     ax2.grid(True, linestyle='--', alpha=0.45)
     ax2.legend(fontsize=9)
 
-    plt.suptitle("Figura 3 — Análise de Escalabilidade Forte: Speedup (Sp) e Eficiência Paralela (Ep)",
-                 fontsize=13, fontweight='bold', y=1.02)
+    # (título da figura fica na legenda do relatório, padrão ABNT)
     plt.tight_layout()
     plt.savefig(os.path.join(OUT_DIR, "fig3_speedup_eficiencia.png"), bbox_inches='tight', dpi=180)
     plt.close(fig)
@@ -217,8 +225,7 @@ def gerar_graficos():
         ax.grid(axis='y', linestyle='--', alpha=0.45)
         ax.legend(fontsize=9)
 
-    plt.suptitle("Figura 4 — Comportamento dos Algoritmos sob Diferentes Naturezas de Dados de Entrada",
-                 fontsize=13, fontweight='bold', y=1.02)
+    # (título da figura fica na legenda do relatório, padrão ABNT)
     plt.tight_layout()
     plt.savefig(os.path.join(OUT_DIR, "fig4_impacto_natureza.png"), bbox_inches='tight', dpi=180)
     plt.close(fig)
@@ -237,7 +244,7 @@ def gerar_graficos():
 
     ax.set_xscale('log')
     ax.set_yscale('log')
-    ax.set_title("Figura 5 — Tempo de Execução em Função da Amplitude do Intervalo de Valores [0..k] (N = 500.000)",
+    ax.set_title("Tempo de Execução em Função da Amplitude do Intervalo de Valores [0..k] (N = 500.000)",
                  fontsize=11.5, fontweight='bold', pad=10)
     ax.set_xlabel("Limite Superior do Intervalo de Valores (k) [Escala Log10]", fontsize=10)
     ax.set_ylabel("Tempo Médio de Execução (ms) [Escala Log10]", fontsize=10)
@@ -281,8 +288,7 @@ def gerar_graficos():
         ax.set_ylabel("Tempo de Execução (ms)", fontsize=10)
         ax.grid(axis='y', linestyle='--', alpha=0.45)
 
-    plt.suptitle("Figura 6 — Análise Estatística de Dispersão das 5 Amostras por Execução (Boxplot)",
-                 fontsize=13, fontweight='bold', y=1.02)
+    # (título da figura fica na legenda do relatório, padrão ABNT)
     plt.tight_layout()
     plt.savefig(os.path.join(OUT_DIR, "fig6_estabilidade_amostras_boxplot.png"), bbox_inches='tight', dpi=180)
     plt.close(fig)

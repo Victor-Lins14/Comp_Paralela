@@ -131,6 +131,7 @@ public class Main {
             ExportadorCSV.exportarResumoEstatistico(resultadosIntervalo, arqIntervalos);
 
             exportarGraficosSwingHeadless(resultadosPrincipais);
+            exportarAmbiente(new File("resultados/ambiente.txt"));
 
             long duracaoSeg = (System.currentTimeMillis() - inicioGeral) / 1000;
             System.out.println("\n================================================================================");
@@ -142,6 +143,26 @@ public class Main {
         } catch (IOException e) {
             System.err.println("Erro ao exportar arquivos CSV: " + e.getMessage());
         }
+    }
+
+    /**
+     * Registra o ambiente de execução do benchmark (lido pelo gerador do relatório).
+     * No Windows, PROCESSOR_IDENTIFIER descreve a família do processador; o nome comercial
+     * pode ser informado em scripts/gerar_relatorio_unifor.py (constante PROCESSADOR).
+     */
+    private static void exportarAmbiente(File arquivo) throws IOException {
+        arquivo.getParentFile().mkdirs();
+        String cpu = System.getenv("PROCESSOR_IDENTIFIER");
+        if (cpu == null || cpu.isBlank()) {
+            cpu = System.getProperty("os.arch");
+        }
+        String conteudo = "processadores_logicos=" + Runtime.getRuntime().availableProcessors() + "\n"
+                + "processador=" + cpu + "\n"
+                + "java_version=" + System.getProperty("java.version") + "\n"
+                + "java_vm=" + System.getProperty("java.vm.name") + "\n"
+                + "sistema_operacional=" + System.getProperty("os.name") + " " + System.getProperty("os.version") + "\n"
+                + "memoria_max_jvm_mb=" + (Runtime.getRuntime().maxMemory() / (1024 * 1024)) + "\n";
+        java.nio.file.Files.writeString(arquivo.toPath(), conteudo, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private static void exportarGraficosSwingHeadless(List<ResultadoAmostra> resultados) throws IOException {
